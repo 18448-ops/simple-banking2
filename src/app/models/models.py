@@ -1,11 +1,26 @@
-from pydantic import BaseModel
+from sqlalchemy import Column, Integer, String
+from ..database import Base
 
-class Account(BaseModel):
-    id: str
-    balance: int
+class User(Base):
+    __tablename__ = "users"
 
-class Transaction(BaseModel):
-    type: str
-    amount: int
-    origin: str = None
-    destination: str = None
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True)
+    name = Column(String)
+    password = Column(String)
+
+class Account(Base):
+    __tablename__ = "accounts"
+
+    id = Column(String, primary_key=True, index=True)
+    balance = Column(Integer)
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    type = Column(String)
+    amount = Column(Integer)
+    origin = Column(String, nullable=True)
+    destination = Column(String, nullable=True)
+

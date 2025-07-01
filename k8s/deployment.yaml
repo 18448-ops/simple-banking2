@@ -1,0 +1,21 @@
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simple-banking-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: simple-banking
+  template:
+    metadata:
+      labels:
+        app: simple-banking
+    spec:
+      containers:
+      - name: simple-banking
+        image: simple-banking:latest
+        ports:
+        - containerPort: 8000
+```
