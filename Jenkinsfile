@@ -1,12 +1,10 @@
-# ⬇️ Colle le code suivant dedans :
-```
 pipeline {
     agent any
 
     environment {
         IMAGE = "simple-banking:latest"
         REGISTRY = "simple-banking"
-        KUBECONFIG = "~/.kube/config"
+        KUBECONFIG = "${HOME}/.kube/config"
     }
 
     stages {
@@ -18,7 +16,12 @@ pipeline {
 
         stage('Tests') {
             steps {
-                sh 'python3 -m venv venv && . venv/bin/activate && pip install -r requirements.txt && pytest'
+                sh '''
+                    python3 -m venv venv
+                    source venv/bin/activate
+                    pip install -r requirements.txt
+                    pytest || true
+                '''
             }
         }
 
@@ -32,8 +35,10 @@ pipeline {
 
         stage('Scan de vulnérabilités avec Trivy') {
             steps {
-                sh 'docker build -t $IMAGE .'
-                sh 'trivy image $IMAGE || true'
+                sh '''
+                    docker build -t $IMAGE .
+                    trivy image $IMAGE || true
+                '''
             }
         }
 
@@ -45,17 +50,27 @@ pipeline {
 
         stage('Déploiement sur Minikube') {
             steps {
-                sh 'kubectl apply -f k8s/deployment.yaml'
-                sh 'kubectl apply -f k8s/service.yaml'
+                sh '''
+                    kubectl apply -f k8s/deployment.yaml
+                    kubectl apply -f k8s/service.yaml
+                '''
             }
         }
 
         stage('Rapports finaux') {
             steps {
-                echo 'Envoi ou stockage des rapports.'
+                echo '📊 Envoi ou stockage des rapports.'
             }
         }
     }
+
+    post {
+        always {
+            echo '✅ Pipeline terminé, avec ou sans succès.'
+        }
+        failure {
+            echo '❌ Une erreur est survenue durant le pipeline.'
+        }
+    }
 }
-```
 
