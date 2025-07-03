@@ -3,7 +3,6 @@ pipeline {
 
     environment {
         IMAGE = "simple-banking:latest"
-        REGISTRY = "simple-banking"
         KUBECONFIG = "${HOME}/.kube/config"
     }
 
@@ -33,18 +32,15 @@ pipeline {
             }
         }
 
-        stage('Scan de vulnérabilités avec Trivy') {
-            steps {
-                sh '''
-                    docker build -t $IMAGE .
-                    trivy image $IMAGE || true
-                '''
-            }
-        }
-
         stage('Build Docker') {
             steps {
                 sh 'docker build -t $IMAGE .'
+            }
+        }
+
+        stage('Scan de vulnérabilités avec Trivy') {
+            steps {
+                sh 'trivy image $IMAGE || true'
             }
         }
 
