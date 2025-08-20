@@ -2,11 +2,9 @@ pipeline {
     agent any
 
     environment {
-        VENV_DIR = 'venv'
-        SONARQUBE = 'sonarqube' // Nom de la configuration SonarQube dans Jenkins
-        DOCKER_REGISTRY = 'registry.example.com' // Remplacer par ton registre
-        APP_NAME = 'simple-banking'
-        KUBECONFIG = '/home/jenkins/.kube/config'
+        VENV_DIR = "${WORKSPACE}/venv"
+        PYTHONPATH = "${WORKSPACE}/src"
+        PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
     }
 
     stages {
@@ -19,92 +17,104 @@ pipeline {
 
         stage('Build') {
             steps {
-                echo 'Building application...'
-                sh '''
-                    python3 -m venv ${VENV_DIR}
-                    . ${VENV_DIR}/bin/activate
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
-                '''
+                echo "Création de la virtualenv et installation des dépendances..."
+                sh """
+                python3 -m venv ${VENV_DIR}
+                . ${VENV_DIR}/bin/activate
+                pip install --upgrade pip
+                pip install -r requirements.txt
+                """
             }
         }
 
         stage('Test') {
             steps {
-                echo 'Running tests...'
-                sh '''
-                    . ${VENV_DIR}/bin/activate
-                    pytest --maxfail=1 --disable-warnings -q
-                '''
+                echo "Exécution des tests..."
+                sh """
+                . ${VENV_DIR}/bin/activate
+                pytest --maxfail=1 --disable-warnings -q
+                """
             }
         }
 
         stage('Analyse SAST avec SonarQube') {
+            when {
+                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
+            }
             steps {
-                withSonarQubeEnv(SONARQUBE) {
-                    echo 'Running SonarQube scan...'
-                    sh 'sonar-scanner'
+                echo "Analyse SAST avec SonarQube..."
+                withSonarQubeEnv('SonarQube') {
+                    sh """
+                    sonar-scanner \
+                    -Dsonar.projectKey=simple-banking \
+                    -Dsonar.sources=src \
+                    -Dsonar.host.url=$SONAR_HOST_URL \
+                    -Dsonar.login=$SONAR_AUTH_TOKEN
+                    """
                 }
             }
         }
 
         stage('Scan de vulnérabilités avec Trivy') {
+            when {
+                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
+            }
             steps {
-                echo 'Scanning Docker image for vulnerabilities...'
-                sh '''
-                    docker build -t ${APP_NAME}:latest .
-                    trivy image --exit-code 1 --severity CRITICAL ${APP_NAME}:latest || true
-                '''
+                echo "Scan des vulnérabilités avec Trivy..."
+                sh "trivy fs --exit-code 1 --severity CRITICAL,HIGH ."
             }
         }
 
         stage('Build Docker') {
+            when {
+                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
+            }
             steps {
-                echo 'Building Docker image...'
-                sh '''
-                    docker build -t ${DOCKER_REGISTRY}/${APP_NAME}:latest .
-                    docker push ${DOCKER_REGISTRY}/${APP_NAME}:latest
-                '''
+                echo "Construction de l'image Docker..."
+                sh "docker build -t simple-banking:latest ."
             }
         }
 
         stage('Déploiement sur Minikube (VM1)') {
+            when {
+                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
+            }
             steps {
-                echo 'Deploying application on Kubernetes...'
-                sh '''
-                    export KUBECONFIG=${KUBECONFIG}
-                    kubectl apply -f k8s/deployment.yaml
-                    kubectl apply -f k8s/service.yaml
-                '''
+                echo "Déploiement sur Minikube..."
+                sh """
+                minikube start
+                kubectl apply -f k8s/
+                """
             }
         }
 
         stage('Monitoring & Alertes') {
+            when {
+                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
+            }
             steps {
-                echo 'Collecting metrics and sending alerts...'
-                sh '''
-                    # Exemple: appeler script Python d'alerte si seuils dépassés
-                    python3 scripts/send_alerts.py
-                '''
+                echo "Vérification du monitoring et alertes..."
+                sh "echo 'Monitoring et alertes à configurer ici'"
             }
         }
 
         stage('Reporting automatisé') {
+            when {
+                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
+            }
             steps {
-                echo 'Generating PDF/HTML reports...'
-                sh '''
-                    python3 scripts/generate_reports.py
-                '''
+                echo "Génération du reporting automatisé..."
+                sh "echo 'Reporting automatisé à configurer ici'"
             }
         }
 
         stage('Red Team / Simulation attaques (VM4)') {
+            when {
+                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
+            }
             steps {
-                echo 'Launching Red Team tests...'
-                sh '''
-                    # Exemple: appeler script de simulation d'attaques
-                    python3 scripts/red_team_simulation.py
-                '''
+                echo "Simulation attaques Red Team..."
+                sh "echo 'Simulation d'attaques à configurer ici'"
             }
         }
 
@@ -112,13 +122,13 @@ pipeline {
 
     post {
         always {
-            echo 'Pipeline finished (main branch)'
+            echo "Pipeline terminé"
         }
         success {
-            echo '✅ Pipeline executed successfully!'
+            echo "✅ Pipeline réussi"
         }
         failure {
-            echo '❌ Pipeline failed!'
+            echo "❌ Pipeline échoué"
         }
     }
 }
