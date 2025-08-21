@@ -8,35 +8,27 @@ import os
 
 app = FastAPI()
 
-# Configuration templates
 templates = Jinja2Templates(directory="app/templates")
 
-# Détection de l'environnement pour la DB
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test_banking.db")
-core.init_database(DATABASE_URL)  # Assure que core gère la DB correctement
-
+core.init_database(DATABASE_URL)  # si tu as une fonction pour initialiser DB
 
 @app.get("/", response_model=dict)
 async def root():
     return {"message": "API Simple Banking fonctionne ✅"}
 
-
 @app.get("/create_user", response_class=HTMLResponse)
 async def create_user_form(request: Request):
     return templates.TemplateResponse("create_user.html", {"request": request})
 
-
 @app.post("/create_user")
 async def create_user(email: str, password: str):
-    # Logique d'ajout utilisateur (à implémenter)
     return {"email": email, "password": password}
-
 
 @app.post("/reset", status_code=status.HTTP_200_OK)
 def reset_state():
     core.reset_state()
     return Response(content="OK", status_code=status.HTTP_200_OK)
-
 
 @app.get("/balance")
 def get_balance(account_id: str, response: Response):
@@ -45,7 +37,6 @@ def get_balance(account_id: str, response: Response):
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"balance": 0}
     return {"balance": account.balance}
-
 
 @app.post("/event", status_code=201, response_model=TransactionResponse)
 def post_event(transaction: TransactionCreate, response: Response):
@@ -62,16 +53,15 @@ def post_event(transaction: TransactionCreate, response: Response):
 
     return process_func(transaction, response)
 
-
 def process_deposit(transaction: TransactionCreate, response: Response):
     account = core.create_or_update_account(transaction.destination, transaction.amount)
     return TransactionResponse(
-        id=str(account.id),
+        id=int(account.id) if isinstance(account.id, str) else account.id,
         type="deposit",
         amount=transaction.amount,
+        origin=None,
         destination=str(account.id)
     )
-
 
 def process_withdraw(transaction: TransactionCreate, response: Response):
     account = core.withdraw_from_account(transaction.origin, transaction.amount)
@@ -79,12 +69,12 @@ def process_withdraw(transaction: TransactionCreate, response: Response):
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"error": "Compte non trouvé"}
     return TransactionResponse(
-        id=str(account.id),
+        id=int(account.id) if isinstance(account.id, str) else account.id,
         type="withdraw",
         amount=transaction.amount,
-        destination=str(account.id)
+        origin=str(account.id),
+        destination=None
     )
-
 
 def process_transfer(transaction: TransactionCreate, response: Response):
     origin, destination = core.transfer_between_accounts(
@@ -94,9 +84,10 @@ def process_transfer(transaction: TransactionCreate, response: Response):
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"error": "Compte origine ou destination non trouvé"}
     return TransactionResponse(
-        id=str(origin.id),
+        id=int(origin.id) if isinstance(origin.id, str) else origin.id,
         type="transfer",
         amount=transaction.amount,
+        origin=str(origin.id),
         destination=str(destination.id)
     )
 
