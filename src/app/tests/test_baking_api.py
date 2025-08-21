@@ -38,7 +38,7 @@ def test_get_balance_existing_account():
 
 def test_withdraw_from_non_existing_account():
     response = client.post("/event", json={"type": "withdraw", "origin": "200", "amount": 10})
-    assert response.status_code == 200
+    assert response.status_code == 404
     data = response.json()
     assert data["error"] == "Compte non trouvé"
     assert data["id"] is None
@@ -50,15 +50,22 @@ def test_withdraw_from_existing_account():
     response = client.post("/event", json={"type": "withdraw", "origin": "100", "amount": 5})
     assert response.status_code == 201
     assert response.json()["origin"] == "100"
+    assert response.json()["amount"] == 5
 
-def test_transfer_from_existing_account():
+def test_transfer_from_existing_account_to_existing_account():
     create_account("100", 20)
-    response = client.post("/event", json={"type": "transfer", "origin": "100", "amount": 15, "destination": "300"})
+    create_account("101", 10)
+    response = client.post("/event", json={"type": "transfer", "origin": "100", "destination": "101", "amount": 15})
     assert response.status_code == 201
-    assert response.json()["origin"] == "100"
-    assert response.json()["destination"] == "300"
+    data = response.json()
+    assert data["origin"] == "100"
+    assert data["destination"] == "101"
+    assert data["amount"] == 15
 
 def test_transfer_from_non_existing_account():
-    response = client.post("/event", json={"type": "transfer", "origin": "200", "amount": 15, "destination": "300"})
+    create_account("101", 10)
+    response = client.post("/event", json={"type": "transfer", "origin": "200", "destination": "101", "amount": 15})
     assert response.status_code == 404
+    data = response.json()
+    assert data["error"] == "Compte origine ou destination non trouvé"
 
