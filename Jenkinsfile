@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         VENV_DIR = "${WORKSPACE}/venv"
-        PYTHONPATH = "${WORKSPACE}/src" // Ajouté pour que Python trouve les packages
+        PYTHONPATH = "${WORKSPACE}/src"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
         ENVIRONMENT = "test" // test pour SQLite, dev/prod pour PostgreSQL
         DATABASE_URL = "${env.ENVIRONMENT == 'test' ? 'sqlite:///./test_banking.db' : (env.DATABASE_URL ?: 'postgresql://postgres:admin@localhost/banking')}"
@@ -45,10 +45,10 @@ pipeline {
             when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
                 echo "Analyse SAST avec SonarQube..."
-                withSonarQubeEnv('sonarqube') { // nom du serveur configuré dans Jenkins
+                withSonarQubeEnv('sonarqube') { // 'sonarqube' = nom du serveur SonarQube dans Jenkins
                     withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                         sh """
-                            sonar-scanner \
+                            ${tool 'sonar-scanner'}/bin/sonar-scanner \
                               -Dsonar.projectKey=simple-banking \
                               -Dsonar.sources=src \
                               -Dsonar.host.url=$SONAR_HOST_URL \
