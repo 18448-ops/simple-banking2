@@ -1,8 +1,9 @@
 from fastapi import FastAPI, Request, status, Response
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
-from .models import TransactionResponse, TransactionCreate
-from .core import core
+from app.models import Transaction, Account
+from app.schemas import TransactionCreate, TransactionResponse
+from app.core import core
 import os
 
 app = FastAPI(title="Simple Banking API")

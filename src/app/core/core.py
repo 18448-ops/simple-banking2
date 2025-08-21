@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from ..models import Account, Transaction
 from ..database import SessionLocal
+from app.models import Account
 
 # Fonctions utilitaires pour gérer les comptes en DB
 

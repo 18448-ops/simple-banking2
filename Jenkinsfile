@@ -35,6 +35,7 @@ pipeline {
                 sh """
                     . ${VENV_DIR}/bin/activate
                     export DATABASE_URL="$DATABASE_URL"
+                    export PYTHONPATH="${PYTHONPATH}"
                     pytest --maxfail=1 --disable-warnings -q
                 """
             }
