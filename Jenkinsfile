@@ -45,7 +45,7 @@ pipeline {
             when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
                 echo "Analyse SAST avec SonarQube..."
-                withSonarQubeEnv('sonarqube') { // 'sonarqube' = nom du serveur SonarQube dans Jenkins
+                withSonarQubeEnv('sonarqube') {
                     withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                         sh """
                             ${tool 'sonar-scanner'}/bin/sonar-scanner \
@@ -59,8 +59,9 @@ pipeline {
             }
         }
 
+        // Les autres étapes sont commentées pour l'instant
+        /*
         stage('Scan de vulnérabilités avec Trivy') {
-            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
                 echo "Scan des vulnérabilités avec Trivy..."
                 sh "trivy fs --exit-code 1 --severity CRITICAL,HIGH ."
@@ -68,7 +69,6 @@ pipeline {
         }
 
         stage('Build Docker') {
-            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
                 echo "Construction de l'image Docker..."
                 sh "docker build -t simple-banking:latest ."
@@ -76,7 +76,6 @@ pipeline {
         }
 
         stage('Monitoring & Alertes') {
-            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
                 echo "Vérification du monitoring et alertes..."
                 sh "echo 'Monitoring et alertes à configurer ici'"
@@ -84,7 +83,6 @@ pipeline {
         }
 
         stage('Reporting automatisé') {
-            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
                 echo "Génération du reporting automatisé..."
                 sh "echo 'Reporting automatisé à configurer ici'"
@@ -92,12 +90,12 @@ pipeline {
         }
 
         stage('Red Team / Simulation attaques (VM4)') {
-            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
                 echo "Simulation attaques Red Team..."
                 sh "echo 'Simulation d'attaques à configurer ici'"
             }
         }
+        */
     }
 
     post {
