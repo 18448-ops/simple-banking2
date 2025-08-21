@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from app.schemas import EventResponse
 from fastapi import FastAPI, Request, status, Response
 from fastapi.templating import Jinja2Templates
@@ -6,7 +7,19 @@ from fastapi.responses import HTMLResponse
 from app.models import Transaction, Account
 from app.schemas import TransactionCreate, TransactionResponse
 from app.core import core
+from pydantic import BaseModel
 import os
+
+class EventRequest(BaseModel):
+    origin: str
+    type: str
+    amount: int
+
+class EventResponse(BaseModel):
+    id: int | None
+    type: str | None
+    amount: int | None
+    error: str | None = None
 
 app = FastAPI(title="Simple Banking API")
 
@@ -41,18 +54,22 @@ def get_balance(account_id: str, response: Response):
     return {"balance": account.balance}
 
 @app.post("/event", response_model=EventResponse)
-def create_event(event: dict):
-    origin = event.get("origin")
-    event_type = event.get("type")
-    amount = event.get("amount")
+async def create_event(event: EventRequest):
+    origin = event.origin
+    event_type = event.type
+    amount = event.amount
 
     # Vérification si le compte existe
-    if origin not in ["100", "101"]:  # comptes existants pour l'exemple
-        return EventResponse(id=None, type=None, amount=None, error="Compte non trouvé")
+    if origin not in ["100", "101"]:
+        return JSONResponse(
+            status_code=404,
+            content={"id": None, "type": None, "amount": None, "error": "Compte non trouvé"})
 
-    # Exemple de retrait
-    new_event = EventResponse(id=1, type=event_type, amount=amount)
-    return new_event
+    # Exemple de création d'un événement
+    new_event_id = 1
+    return JSONResponse(
+        status_code=201,
+        content={"id": new_event_id, "type": event_type, "amount": amount, "error": None})
 def post_event(transaction: TransactionCreate, response: Response):
     strategy_map = {
         "deposit": process_deposit,
