@@ -5,8 +5,7 @@ pipeline {
         VENV_DIR = "${WORKSPACE}/venv"
         PYTHONPATH = "${WORKSPACE}/src"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
-        // Choix de l'environnement: "test" pour SQLite, "dev" ou "prod" pour PostgreSQL
-        ENVIRONMENT = "test"
+        ENVIRONMENT = "test" // test pour SQLite, dev/prod pour PostgreSQL
         DATABASE_URL = "${env.ENVIRONMENT == 'test' ? 'sqlite:///./test_banking.db' : (env.DATABASE_URL ?: 'postgresql://postgres:admin@localhost/banking')}"
     }
 
@@ -35,7 +34,6 @@ pipeline {
                 echo "Exécution des tests..."
                 sh """
                     . ${VENV_DIR}/bin/activate
-                    echo "Database URL: $DATABASE_URL"
                     export DATABASE_URL="$DATABASE_URL"
                     pytest --maxfail=1 --disable-warnings -q
                 """
@@ -43,9 +41,7 @@ pipeline {
         }
 
         stage('Analyse SAST avec SonarQube') {
-            when {
-                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
-            }
+            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
                 echo "Analyse SAST avec SonarQube..."
                 withSonarQubeEnv('SonarQube') {
@@ -61,9 +57,7 @@ pipeline {
         }
 
         stage('Scan de vulnérabilités avec Trivy') {
-            when {
-                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
-            }
+            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
                 echo "Scan des vulnérabilités avec Trivy..."
                 sh "trivy fs --exit-code 1 --severity CRITICAL,HIGH ."
@@ -71,9 +65,7 @@ pipeline {
         }
 
         stage('Build Docker') {
-            when {
-                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
-            }
+            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
                 echo "Construction de l'image Docker..."
                 sh "docker build -t simple-banking:latest ."
@@ -81,9 +73,7 @@ pipeline {
         }
 
         stage('Monitoring & Alertes') {
-            when {
-                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
-            }
+            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
                 echo "Vérification du monitoring et alertes..."
                 sh "echo 'Monitoring et alertes à configurer ici'"
@@ -91,9 +81,7 @@ pipeline {
         }
 
         stage('Reporting automatisé') {
-            when {
-                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
-            }
+            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
                 echo "Génération du reporting automatisé..."
                 sh "echo 'Reporting automatisé à configurer ici'"
@@ -101,9 +89,7 @@ pipeline {
         }
 
         stage('Red Team / Simulation attaques (VM4)') {
-            when {
-                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
-            }
+            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
                 echo "Simulation attaques Red Team..."
                 sh "echo 'Simulation d'attaques à configurer ici'"
@@ -112,15 +98,9 @@ pipeline {
     }
 
     post {
-        always {
-            echo "Pipeline terminé"
-        }
-        success {
-            echo "✅ Pipeline réussi"
-        }
-        failure {
-            echo "❌ Pipeline échoué"
-        }
+        always { echo "Pipeline terminé" }
+        success { echo "✅ Pipeline réussi" }
+        failure { echo "❌ Pipeline échoué" }
     }
 }
 

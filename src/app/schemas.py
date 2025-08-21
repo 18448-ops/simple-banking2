@@ -11,7 +11,7 @@ class TransactionCreate(TransactionBase):
     pass
 
 class TransactionResponse(TransactionBase):
-    id: int  # identifiant de la transaction
+    id: str  # correspond à l'ID du compte pour deposit/withdraw/transfer
 
     class Config:
         orm_mode = True
