@@ -43,13 +43,10 @@ class TransactionResponse(BaseModel):
 # ------------------------
 app = FastAPI(title="Simple Banking API")
 
-# Templates pour formulaire HTML
 templates = Jinja2Templates(directory="app/templates")
 
-# Base de données (exemple)
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test_banking.db")
 
-# Compteur d'événements
 event_counter = 1
 valid_accounts = ["100", "101"]
 
@@ -66,7 +63,6 @@ async def create_user_form(request: Request):
 
 @app.post("/create_user")
 async def create_user(email: str, password: str):
-    # Ici on peut intégrer core.create_user(email, password)
     return {"email": email, "password": password}
 
 @app.post("/reset", status_code=status.HTTP_200_OK)
@@ -92,7 +88,7 @@ async def create_event(event: EventRequest):
     origin = event.origin
     destination = event.destination
 
-    # Vérification du type de transaction
+    # Vérification du type
     if event.type not in ["deposit", "withdraw", "transfer"]:
         return JSONResponse(
             status_code=400,
@@ -106,7 +102,7 @@ async def create_event(event: EventRequest):
             }
         )
 
-    # Détermination du compte principal à vérifier
+    # Détermination du compte principal
     account_id = destination if event.type == "deposit" else origin
 
     # Vérification de l'existence du compte
@@ -123,9 +119,11 @@ async def create_event(event: EventRequest):
             }
         )
 
-    # Mise à jour via core
+    # Dépôt
     if event.type == "deposit":
-        account = core.create_or_update_account(destination, event.amount)
+        core.create_or_update_account(destination, event.amount)
+
+    # Retrait
     elif event.type == "withdraw":
         account = core.withdraw_from_account(origin, event.amount)
         if account is None:
@@ -140,6 +138,8 @@ async def create_event(event: EventRequest):
                     "error": "Compte non trouvé"
                 }
             )
+
+    # Transfert
     elif event.type == "transfer":
         origin_acc, dest_acc = core.transfer_between_accounts(origin, destination, event.amount)
         if origin_acc is None or dest_acc is None:
