@@ -1,23 +1,23 @@
 from sqlalchemy import Column, Integer, String
 from ..database import Base
 
+# Modèle utilisateur (si tu veux l'utiliser plus tard)
 class User(Base):
     __tablename__ = "users"
-
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
     name = Column(String)
     password = Column(String)
 
+# Modèle compte bancaire
 class Account(Base):
     __tablename__ = "accounts"
-
     id = Column(String, primary_key=True, index=True)
     balance = Column(Integer)
 
+# Modèle transaction (si nécessaire pour stockage en DB)
 class Transaction(Base):
     __tablename__ = "transactions"
-
     id = Column(Integer, primary_key=True, index=True)
     type = Column(String)
     amount = Column(Integer)
