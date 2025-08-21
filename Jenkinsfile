@@ -5,6 +5,8 @@ pipeline {
         VENV_DIR = "${WORKSPACE}/venv"
         PYTHONPATH = "${WORKSPACE}/src"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
+        # Variable pour choisir la base selon l'environnement
+        ENVIRONMENT = "test"  // test pour SQLite, dev/prod pour PostgreSQL
     }
 
     stages {
@@ -27,11 +29,24 @@ pipeline {
             }
         }
 
+        stage('Set Database for Tests') {
+            when {
+                expression { env.ENVIRONMENT == "test" }
+            }
+            steps {
+                echo "Configuration de SQLite pour les tests..."
+                sh """
+                export DATABASE_URL="sqlite:///./test.db"
+                """
+            }
+        }
+
         stage('Test') {
             steps {
                 echo "Exécution des tests..."
                 sh """
                 . ${VENV_DIR}/bin/activate
+                export DATABASE_URL=${DATABASE_URL:-postgresql://postgres:admin@localhost/banking}
                 pytest --maxfail=1 --disable-warnings -q
                 """
             }
@@ -75,19 +90,6 @@ pipeline {
             }
         }
 
-        stage('Déploiement sur Minikube (VM1)') {
-            when {
-                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
-            }
-            steps {
-                echo "Déploiement sur Minikube..."
-                sh """
-                minikube start
-                kubectl apply -f k8s/
-                """
-            }
-        }
-
         stage('Monitoring & Alertes') {
             when {
                 expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
@@ -117,7 +119,6 @@ pipeline {
                 sh "echo 'Simulation d'attaques à configurer ici'"
             }
         }
-
     }
 
     post {
@@ -126,7 +127,7 @@ pipeline {
         }
         success {
             echo "✅ Pipeline réussi"
-        }
+         }
         failure {
             echo "❌ Pipeline échoué"
         }
