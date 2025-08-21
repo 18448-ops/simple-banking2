@@ -5,7 +5,7 @@ pipeline {
         VENV_DIR = "${WORKSPACE}/venv"
         PYTHONPATH = "${WORKSPACE}/src"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
-        # Variable pour choisir la base selon l'environnement
+        // Variable pour choisir la base selon l'environnement
         ENVIRONMENT = "test"  // test pour SQLite, dev/prod pour PostgreSQL
     }
 
