@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         VENV_DIR = "${WORKSPACE}/venv"
-        PYTHONPATH = "${WORKSPACE}/src"
+        PYTHONPATH = "${WORKSPACE}/src" // Ajouté pour que Python trouve les packages
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
         ENVIRONMENT = "test" // test pour SQLite, dev/prod pour PostgreSQL
         DATABASE_URL = "${env.ENVIRONMENT == 'test' ? 'sqlite:///./test_banking.db' : (env.DATABASE_URL ?: 'postgresql://postgres:admin@localhost/banking')}"
@@ -35,7 +35,7 @@ pipeline {
                 sh """
                     . ${VENV_DIR}/bin/activate
                     export DATABASE_URL="$DATABASE_URL"
-                    export PYTHONPATH="${PYTHONPATH}"
+                    export PYTHONPATH="$PYTHONPATH"
                     pytest --maxfail=1 --disable-warnings -q
                 """
             }

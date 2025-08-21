@@ -38,7 +38,12 @@ def test_get_balance_existing_account():
 
 def test_withdraw_from_non_existing_account():
     response = client.post("/event", json={"type": "withdraw", "origin": "200", "amount": 10})
-    assert response.status_code == 404
+    assert response.status_code == 200
+    data = response.json()
+    assert data["error"] == "Compte non trouvé"
+    assert data["id"] is None
+    assert data["type"] is None
+    assert data["amount"] is None
 
 def test_withdraw_from_existing_account():
     create_account("100", 20)

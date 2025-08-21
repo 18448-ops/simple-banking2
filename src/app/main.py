@@ -1,3 +1,5 @@
+from fastapi import FastAPI
+from app.schemas import EventResponse
 from fastapi import FastAPI, Request, status, Response
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
@@ -38,7 +40,19 @@ def get_balance(account_id: str, response: Response):
         return {"balance": 0}
     return {"balance": account.balance}
 
-@app.post("/event", status_code=201, response_model=TransactionResponse)
+@app.post("/event", response_model=EventResponse)
+def create_event(event: dict):
+    origin = event.get("origin")
+    event_type = event.get("type")
+    amount = event.get("amount")
+
+    # Vérification si le compte existe
+    if origin not in ["100", "101"]:  # comptes existants pour l'exemple
+        return EventResponse(id=None, type=None, amount=None, error="Compte non trouvé")
+
+    # Exemple de retrait
+    new_event = EventResponse(id=1, type=event_type, amount=amount)
+    return new_event
 def post_event(transaction: TransactionCreate, response: Response):
     strategy_map = {
         "deposit": process_deposit,
