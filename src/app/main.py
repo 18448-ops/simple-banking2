@@ -141,19 +141,19 @@ async def create_event(event: EventRequest):
                 }
             )
     elif event.type == "transfer":
-        origin_acc, dest_acc = core.transfer_between_accounts(origin, destination, event.amount)
-        if origin_acc is None or dest_acc is None:
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "id": None,
-                    "type": "transfer",
-                    "amount": event.amount,
-                    "origin": origin,
-                    "destination": destination,
-                    "error": "Compte origine ou destination non trouvé"
-                }
-            )
+    origin_acc, dest_acc = core.transfer_between_accounts(origin, destination, event.amount)
+    if origin_acc is None or dest_acc is None:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "id": None,
+                "type": "transfer",
+                "amount": event.amount,
+                "origin": origin,
+                "destination": destination,
+                "error": "Compte origine ou destination non trouvé"
+            }
+        )
 
     # Création de l'événement
     new_event = {
