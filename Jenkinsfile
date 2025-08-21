@@ -45,7 +45,7 @@ pipeline {
             when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
                 echo "Analyse SAST avec SonarQube..."
-                withSonarQubeEnv('SonarQube') { // nom du serveur configuré dans Jenkins
+                withSonarQubeEnv('sonarqube') { // nom du serveur configuré dans Jenkins
                     withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                         sh """
                             sonar-scanner \
