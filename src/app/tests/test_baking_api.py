@@ -42,7 +42,6 @@ def test_withdraw_from_non_existing_account():
     data = response.json()
     assert data["error"] == "Compte non trouvé"
     assert data["id"] is None
-    # Corrigé : l'API retourne le type de l'événement même si le compte n'existe pas
     assert data["type"] == "withdraw"
     assert data["amount"] == 10
 
@@ -68,5 +67,6 @@ def test_transfer_from_non_existing_account():
     response = client.post("/event", json={"type": "transfer", "origin": "200", "destination": "101", "amount": 15})
     assert response.status_code == 404
     data = response.json()
+    # ✅ cohérent avec le main.py corrigé
     assert data["error"] == "Compte origine ou destination non trouvé"
 
