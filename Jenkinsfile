@@ -5,8 +5,9 @@ pipeline {
         VENV_DIR = "${WORKSPACE}/venv"
         PYTHONPATH = "${WORKSPACE}/src"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
-        // Variable pour choisir la base selon l'environnement
-        ENVIRONMENT = "test"  // test pour SQLite, dev/prod pour PostgreSQL
+        // Choix de l'environnement: "test" pour SQLite, "dev" ou "prod" pour PostgreSQL
+        ENVIRONMENT = "test"
+        DATABASE_URL = "${env.ENVIRONMENT == 'test' ? 'sqlite:///./test_banking.db' : (env.DATABASE_URL ?: 'postgresql://postgres:admin@localhost/banking')}"
     }
 
     stages {
@@ -21,22 +22,10 @@ pipeline {
             steps {
                 echo "Création de la virtualenv et installation des dépendances..."
                 sh """
-                python3 -m venv ${VENV_DIR}
-                . ${VENV_DIR}/bin/activate
-                pip install --upgrade pip
-                pip install -r requirements.txt
-                """
-            }
-        }
-
-        stage('Set Database for Tests') {
-            when {
-                expression { env.ENVIRONMENT == "test" }
-            }
-            steps {
-                echo "Configuration de SQLite pour les tests..."
-                sh """
-                export DATABASE_URL="sqlite:///./test.db"
+                    python3 -m venv ${VENV_DIR}
+                    . ${VENV_DIR}/bin/activate
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
                 """
             }
         }
@@ -45,9 +34,10 @@ pipeline {
             steps {
                 echo "Exécution des tests..."
                 sh """
-                . ${VENV_DIR}/bin/activate
-                export DATABASE_URL=${DATABASE_URL:-postgresql://postgres:admin@localhost/banking}
-                pytest --maxfail=1 --disable-warnings -q
+                    . ${VENV_DIR}/bin/activate
+                    echo "Database URL: $DATABASE_URL"
+                    export DATABASE_URL="$DATABASE_URL"
+                    pytest --maxfail=1 --disable-warnings -q
                 """
             }
         }
@@ -60,11 +50,11 @@ pipeline {
                 echo "Analyse SAST avec SonarQube..."
                 withSonarQubeEnv('SonarQube') {
                     sh """
-                    sonar-scanner \
-                    -Dsonar.projectKey=simple-banking \
-                    -Dsonar.sources=src \
-                    -Dsonar.host.url=$SONAR_HOST_URL \
-                    -Dsonar.login=$SONAR_AUTH_TOKEN
+                        sonar-scanner \
+                        -Dsonar.projectKey=simple-banking \
+                        -Dsonar.sources=src \
+                        -Dsonar.host.url=$SONAR_HOST_URL \
+                        -Dsonar.login=$SONAR_AUTH_TOKEN
                     """
                 }
             }
@@ -127,7 +117,7 @@ pipeline {
         }
         success {
             echo "✅ Pipeline réussi"
-         }
+        }
         failure {
             echo "❌ Pipeline échoué"
         }
