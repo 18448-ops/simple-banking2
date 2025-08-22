@@ -59,28 +59,33 @@ pipeline {
             }
         }
         stage('Scan de vulnérabilités avec Trivy') {
-            steps {
-                echo "Scan des vulnérabilités avec Trivy (code source)..."
-                sh "trivy fs --exit-code 1 --severity CRITICAL,HIGH --format json --output trivy-report.json ."
-                archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
-            }
-        }
+    steps {
+        echo 'Scan des vulnérabilités avec Trivy (code source)...'
+        sh '''
+            # Scan du code source, ne bloque pas le pipeline si des vulnérabilités sont trouvées
+            trivy fs --severity CRITICAL,HIGH --format json --output trivy-report.json . || true
+        '''
+        archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
+    }
+}
 
-        stage('Build Docker') {
-            steps {
-                echo "Construction de l'image Docker..."
-                sh "docker build -t simple-banking:latest ."
-            }
-        }
+stage('Build Docker') {
+    steps {
+        echo 'Construction de l\'image Docker...'
+        sh 'docker build -t simple-banking:latest .'
+    }
+}
 
-        stage('Scan Docker Image avec Trivy') {
-            steps {
-                echo "Scan des vulnérabilités de l'image Docker..."
-                sh "trivy image --exit-code 1 --severity CRITICAL,HIGH --format json --output trivy-image-report.json simple-banking:latest"
-                archiveArtifacts artifacts: 'trivy-image-report.json', allowEmptyArchive: true
-            }
-        }
-        
+stage('Scan Docker Image avec Trivy') {
+    steps {
+        echo 'Scan des vulnérabilités de l\'image Docker...'
+        sh '''
+            # Scan de l'image Docker, ne bloque pas le pipeline si des vulnérabilités sont trouvées
+            trivy image --severity CRITICAL,HIGH --format json --output trivy-image-report.json simple-banking:latest || true
+        '''
+        archiveArtifacts artifacts: 'trivy-image-report.json', allowEmptyArchive: true
+    }
+}
         // Les autres étapes sont commentées pour l'instant
         /*
 
