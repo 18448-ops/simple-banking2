@@ -58,9 +58,7 @@ pipeline {
                 }
             }
         }
-
-        // Les autres étapes sont commentées pour l'instant
-        /*
+        
         stage('Scan de vulnérabilités avec Trivy') {
             steps {
                 echo "Scan des vulnérabilités avec Trivy..."
@@ -74,6 +72,8 @@ pipeline {
                 sh "docker build -t simple-banking:latest ."
             }
         }
+        // Les autres étapes sont commentées pour l'instant
+        /*
 
         stage('Monitoring & Alertes') {
             steps {
