@@ -13,6 +13,13 @@ pipeline {
 
     stages {
 
+        stage('Install Python3-venv') {
+          steps {
+            echo "Installation du paquet python3-venv..."
+            sh 'sudo apt-get update && sudo apt-get install -y python3.11-venv'
+    }
+}
+
         stage('Checkout SCM') {
             steps {
                 echo "Clonage du code source..."
