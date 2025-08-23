@@ -6,13 +6,16 @@ pipeline {
         PYTHONPATH = "${WORKSPACE}/src"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
         ENVIRONMENT = "test" // test pour SQLite, dev/prod pour PostgreSQL
-        DATABASE_URL = "${env.ENVIRONMENT == 'test' ? 'sqlite:///./test_banking.db' : (env.DATABASE_URL ?: 'postgresql://postgres:admin@localhost/banking')}"
+        DATABASE_URL = "${env.ENVIRONMENT == 'test' ? 'sqlite:///./test_banking.db' : (env.DATABASE_URL ?: 'postgresql://user:password@192.168.189.135/mydb')}"
+        SONARQUBE_URL = 'http://192.168.189.138:9000'  // URL de SonarQube
+        SONARQUBE_TOKEN = credentials('sonarqube-token')  // Utilisation du token SonarQube stocké dans Jenkins
     }
 
     stages {
 
         stage('Checkout SCM') {
             steps {
+                echo "Clonage du code source..."
                 checkout scm
             }
         }
@@ -46,46 +49,48 @@ pipeline {
             steps {
                 echo "Analyse SAST avec SonarQube..."
                 withSonarQubeEnv('sonarqube') {
-                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                    withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                         sh """
                             ${tool 'sonar-scanner'}/bin/sonar-scanner \
-                              -Dsonar.projectKey=simple-banking \
+                              -Dsonar.projectKey=simple-banking2 \
                               -Dsonar.sources=src \
-                              -Dsonar.host.url=$SONAR_HOST_URL \
+                              -Dsonar.host.url=$SONARQUBE_URL \
                               -Dsonar.login=$SONAR_TOKEN
                         """
                     }
                 }
             }
         }
+
         stage('Scan de vulnérabilités avec Trivy') {
-    steps {
-        echo 'Scan des vulnérabilités avec Trivy (code source)...'
-        sh '''
-            # Scan du code source, ne bloque pas le pipeline si des vulnérabilités sont trouvées
-            trivy fs --severity CRITICAL,HIGH --format json --output trivy-report.json . || true
-        '''
-        archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
-    }
-}
+            steps {
+                echo 'Scan des vulnérabilités avec Trivy (code source)...'
+                sh '''
+                    # Scan du code source, ne bloque pas le pipeline si des vulnérabilités sont trouvées
+                    trivy fs --severity CRITICAL,HIGH --format json --output trivy-report.json . || true
+                '''
+                archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
+            }
+        }
 
-stage('Build Docker') {
-    steps {
-        echo 'Construction de l\'image Docker...'
-        sh 'docker build -t simple-banking:latest .'
-    }
-}
+        stage('Build Docker') {
+            steps {
+                echo 'Construction de l\'image Docker...'
+                sh 'docker build -t simple-banking2:latest .'
+            }
+        }
 
-stage('Scan Docker Image avec Trivy') {
-    steps {
-        echo 'Scan des vulnérabilités de l\'image Docker...'
-        sh '''
-            # Scan de l'image Docker, ne bloque pas le pipeline si des vulnérabilités sont trouvées
-            trivy image --severity CRITICAL,HIGH --format json --output trivy-image-report.json simple-banking:latest || true
-        '''
-        archiveArtifacts artifacts: 'trivy-image-report.json', allowEmptyArchive: true
-    }
-}
+        stage('Scan Docker Image avec Trivy') {
+            steps {
+                echo 'Scan des vulnérabilités de l\'image Docker...'
+                sh '''
+                    # Scan de l'image Docker, ne bloque pas le pipeline si des vulnérabilités sont trouvées
+                    trivy image --severity CRITICAL,HIGH --format json --output trivy-image-report.json simple-banking2:latest || true
+                '''
+                archiveArtifacts artifacts: 'trivy-image-report.json', allowEmptyArchive: true
+            }
+        }
+
         // Les autres étapes sont commentées pour l'instant
         /*
 
