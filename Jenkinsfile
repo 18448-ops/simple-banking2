@@ -1,14 +1,18 @@
 pipeline {
     agent any
 
+    tools {
+        // Scanner configuré dans Manage Jenkins → Global Tool Configuration
+        sonarQubeScanner 'sonar-scanner'
+    }
+
     environment {
         VENV_DIR      = "${WORKSPACE}/venv"
         PYTHONPATH    = "${WORKSPACE}/src"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
         ENVIRONMENT   = "test" // test = SQLite, dev/prod = PostgreSQL
-        SONARQUBE_URL = 'http://192.168.189.138:9000'
-        // Valeur par défaut PostgreSQL (sera écrasée si ENVIRONMENT=test)
-        DATABASE_URL  = "postgresql://user:password@localhost:5432/simple_banking"
+        SONARQUBE     = 'sonarqube'  // doit correspondre au "Name" configuré dans Jenkins > System
+        DATABASE_URL  = "postgresql://user:password@localhost:5432/mydb"
     }
 
     stages {
@@ -49,16 +53,25 @@ pipeline {
             when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
                 echo "🔎 Running SAST analysis with SonarQube..."
-                withSonarQubeEnv('SonarQube') {
+                withSonarQubeEnv("${SONARQUBE}") {
                     withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                         sh """
                             sonar-scanner \
                               -Dsonar.projectKey=simple-banking2 \
                               -Dsonar.sources=src \
-                              -Dsonar.host.url=$SONARQUBE_URL \
+                              -Dsonar.python.coverage.reportPaths=coverage.xml \
+                              -Dsonar.host.url=$SONAR_HOST_URL \
                               -Dsonar.login=$SONAR_TOKEN
                         """
                     }
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 2, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
                 }
             }
         }
