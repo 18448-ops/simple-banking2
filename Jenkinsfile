@@ -12,7 +12,7 @@ pipeline {
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
         ENVIRONMENT   = "test" // test = SQLite, dev/prod = PostgreSQL
         SONARQUBE     = 'sonarqube'  // doit correspondre au "Name" configuré dans Jenkins > System
-        DATABASE_URL  = "postgresql://user:password@localhost:5432/mydb"
+        DATABASE_URL  = "postgresql://user:password@192.168.189.138:5432/mydb"
     }
 
     stages {
