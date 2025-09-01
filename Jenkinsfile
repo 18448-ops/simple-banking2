@@ -44,14 +44,18 @@ pipeline {
             steps {
                 withSonarQubeEnv("${SONARQUBE}") {
                     withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-                        sh """
-                            sonar-scanner \
-                              -Dsonar.projectKey=simple-banking2 \
-                              -Dsonar.sources=src \
-                              -Dsonar.python.coverage.reportPaths=coverage.xml \
-                              -Dsonar.host.url=$SONAR_HOST_URL \
-                              -Dsonar.login=$SONAR_TOKEN
-                        """
+                        script {
+                            // Récupère le chemin du SonarScanner configuré dans Jenkins
+                            def scannerHome = tool 'sonar-scanner'
+                            sh """
+                                ${scannerHome}/bin/sonar-scanner \
+                                  -Dsonar.projectKey=simple-banking2 \
+                                  -Dsonar.sources=src \
+                                  -Dsonar.python.coverage.reportPaths=coverage.xml \
+                                  -Dsonar.host.url=$SONAR_HOST_URL \
+                                  -Dsonar.login=$SONAR_TOKEN
+                            """
+                        }
                     }
                 }
             }
