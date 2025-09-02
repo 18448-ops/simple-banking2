@@ -8,6 +8,7 @@ pipeline {
         ENVIRONMENT   = "test"
         SONARQUBE     = 'sonarqube'   // Nom configuré dans Jenkins → Manage Jenkins → System
         DATABASE_URL  = "postgresql://user:password@192.168.189.138:5432/mydb"
+        DOCKER_IMAGE  = "maneldev131/simple-banking-api:latest"   // 🔧 Fix namespace DockerHub
     }
 
     stages {
@@ -59,7 +60,7 @@ pipeline {
                                   -Dsonar.projectKey=simple-banking2 \
                                   -Dsonar.sources=src \
                                   -Dsonar.python.coverage.reportPaths=coverage.xml \
-                                  -Dsonar.host.url=$SONAR_HOST_URL \
+                                  -Dsonar.host.url=http://192.168.189.138:9000 \
                                   -Dsonar.login=$SONAR_TOKEN
                             """
                         }
@@ -87,8 +88,8 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh """
                         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                        docker tag simple-banking-api $DOCKER_USER/simple-banking-api:latest
-                        docker push $DOCKER_USER/simple-banking-api:latest
+                        docker tag simple-banking-api ${DOCKER_IMAGE}
+                        docker push ${DOCKER_IMAGE}
                     """
                 }
             }
@@ -99,7 +100,7 @@ pipeline {
                 sh """
                     docker stop simple-banking-api || true
                     docker rm simple-banking-api || true
-                    docker run -d --name simple-banking-api -p 8000:8000 $DOCKER_USER/simple-banking-api:latest
+                    docker run -d --name simple-banking-api -p 8000:8000 ${DOCKER_IMAGE}
                 """
             }
         }
