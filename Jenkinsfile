@@ -6,7 +6,7 @@ pipeline {
         PYTHONPATH    = "${WORKSPACE}/src"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
         ENVIRONMENT   = "test"
-        SONARQUBE     = 'sonarqube'  // Nom configuré dans Jenkins → Manage Jenkins → System
+        SONARQUBE     = 'sonarqube'   // Nom configuré dans Jenkins → Manage Jenkins → System
         DATABASE_URL  = "postgresql://user:password@192.168.189.138:5432/mydb"
     }
 
@@ -35,8 +35,13 @@ pipeline {
                     if [ "$ENVIRONMENT" = "test" ]; then
                         export DATABASE_URL="sqlite:///./test_banking.db"
                     fi
-                    pytest --maxfail=1 --disable-warnings -q
+                    pytest --maxfail=1 --disable-warnings -q --junitxml=pytest-report.xml --cov=src --cov-report=xml
                 """
+            }
+            post {
+                always {
+                    junit 'pytest-report.xml'
+                }
             }
         }
 
@@ -45,7 +50,6 @@ pipeline {
                 withSonarQubeEnv("${SONARQUBE}") {
                     withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                         script {
-                            // Récupère le chemin du SonarScanner configuré dans Jenkins
                             def scannerHome = tool 'sonar-scanner'
                             sh """
                                 ${scannerHome}/bin/sonar-scanner \
@@ -63,7 +67,7 @@ pipeline {
 
         stage('Quality Gate') {
             steps {
-                timeout(time: 2, unit: 'MINUTES') {
+                timeout(time: 5, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
             }
@@ -80,8 +84,8 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh """
                         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                        docker tag simple-banking-api maneldev131/simple-banking-api:latest
-                        docker push maneldev131/simple-banking-api:latest
+                        docker tag simple-banking-api $DOCKER_USER/simple-banking-api:latest
+                        docker push $DOCKER_USER/simple-banking-api:latest
                     """
                 }
             }
@@ -92,7 +96,7 @@ pipeline {
                 sh """
                     docker stop simple-banking-api || true
                     docker rm simple-banking-api || true
-                    docker run -d --name simple-banking-api -p 8000:8000 maneldev131/simple-banking-api:latest
+                    docker run -d --name simple-banking-api -p 8000:8000 $DOCKER_USER/simple-banking-api:latest
                 """
             }
         }
