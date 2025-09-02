@@ -24,6 +24,7 @@ pipeline {
                     . ${VENV_DIR}/bin/activate
                     pip install --upgrade pip
                     pip install -r requirements.txt
+                    pip install pytest pytest-cov
                 """
             }
         }
@@ -35,7 +36,9 @@ pipeline {
                     if [ "$ENVIRONMENT" = "test" ]; then
                         export DATABASE_URL="sqlite:///./test_banking.db"
                     fi
-                    pytest --maxfail=1 --disable-warnings -q --junitxml=pytest-report.xml --cov=src --cov-report=xml
+                    pytest --maxfail=1 --disable-warnings -q \
+                           --junitxml=pytest-report.xml \
+                           --cov=src --cov-report=xml
                 """
             }
             post {
