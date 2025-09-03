@@ -6,9 +6,9 @@ pipeline {
         PYTHONPATH    = "${WORKSPACE}/src"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
         ENVIRONMENT   = "test"
-        SONARQUBE     = 'sonarqube'   // Nom configuré dans Jenkins → Manage Jenkins → System
+        SONARQUBE     = 'sonarqube'   // Nom configuré dans Jenkins
         DATABASE_URL  = "postgresql://user:password@192.168.189.138:5432/mydb"
-        DOCKER_IMAGE  = "maneldev131/simple-banking-api:latest"   // 🔧 Fix namespace DockerHub
+        DOCKER_IMAGE  = "maneldev131/simple-banking-api:latest"
     }
 
     stages {
@@ -80,6 +80,25 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh "docker build -t simple-banking-api ."
+            }
+        }
+
+        stage('Trivy Scan') {
+            steps {
+                // ⚡ Scan l’image construite
+                sh """
+                    trivy image --exit-code 1 --severity HIGH,CRITICAL simple-banking-api || true
+                """
+            }
+            post {
+                always {
+                    // Sauvegarde le rapport JSON et HTML
+                    sh """
+                        trivy image --format json -o trivy-report.json simple-banking-api
+                        trivy image --format template --template "@/contrib/html.tpl" -o trivy-report.html simple-banking-api
+                    """
+                    archiveArtifacts artifacts: 'trivy-report.*', allowEmptyArchive: true
+                }
             }
         }
 
