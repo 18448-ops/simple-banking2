@@ -6,9 +6,9 @@ pipeline {
         PYTHONPATH    = "${WORKSPACE}/src"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
         ENVIRONMENT   = "test"
-        SONARQUBE     = 'sonarqube'   // Nom configuré dans Jenkins → Manage Jenkins → System
+        SONARQUBE     = 'sonarqube'
         DATABASE_URL  = "postgresql://user:password@192.168.189.138:5432/mydb"
-        DOCKER_IMAGE  = "maneldev131/simple-banking-api:latest"   // 🔧 Namespace DockerHub
+        DOCKER_IMAGE  = "maneldev131/simple-banking-api:latest"
     }
 
     stages {
@@ -86,17 +86,20 @@ pipeline {
         stage('Trivy Scan') {
             steps {
                 sh """
-                    docker run --rm \
-                        -v /var/run/docker.sock:/var/run/docker.sock \
-                        -v $WORKSPACE:/root/.cache/ \
-                        aquasec/trivy:latest image \
-                        --exit-code 0 \
-                        --severity HIGH,CRITICAL \
-                        --format table \
-                        --output $WORKSPACE/trivy-report.txt \
-                        simple-banking-api
+                    if ! command -v trivy >/dev/null 2>&1; then
+                        echo "Installing Trivy..."
+                        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
+                        sudo mv trivy /usr/local/bin/
+                    fi
+                    echo "Running Trivy scan..."
+                    trivy image --exit-code 0 --severity MEDIUM,HIGH simple-banking-api > trivy-report.txt
+                    trivy image --exit-code 1 --severity CRITICAL simple-banking-api >> trivy-report.txt
                 """
-                archiveArtifacts artifacts: 'trivy-report.txt', followSymlinks: false
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'trivy-report.txt', fingerprint: true
+                }
             }
         }
 
@@ -120,13 +123,6 @@ pipeline {
                     docker run -d --name simple-banking-api -p 8000:8000 ${DOCKER_IMAGE}
                 """
             }
-        }
-    }
-
-    post {
-        always {
-            echo "Nettoyage terminé"
-            sh "docker system prune -f || true"
         }
     }
 }
