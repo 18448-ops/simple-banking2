@@ -2,8 +2,6 @@ pipeline {
     agent any
 
     environment {
-        JAVA_HOME = "/usr/lib/jvm/java-17-openjdk-amd64"
-        PATH = "${JAVA_HOME}/bin:${env.PATH}"
         DOCKER_IMAGE = "simple-banking-api"
     }
 
@@ -47,6 +45,10 @@ pipeline {
                 withSonarQubeEnv('sonarqube') {
                     withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                         sh '''
+                        # ⚡ Forcer l'utilisation de Java 17 pour SonarScanner
+                        export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+                        export PATH=$JAVA_HOME/bin:$PATH
+
                         sonar-scanner \
                           -Dsonar.projectKey=simple-banking2 \
                           -Dsonar.sources=src \
@@ -76,19 +78,19 @@ pipeline {
         stage('Trivy Scan') {
             steps {
                 sh '''
-                echo "Installing Trivy..."
+                echo "📦 Installing Trivy..."
                 curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
-                sudo mv ./bin/trivy /usr/local/bin/trivy
+                chmod +x ./bin/trivy
+                sudo mv ./bin/trivy /usr/local/bin/trivy || mv ./bin/trivy ~/bin/trivy
 
-                echo "Running Trivy scan..."
+                echo "🔎 Running Trivy scan..."
                 trivy --version
-                trivy image --exit-code 0 --severity MEDIUM,HIGH --format table -o trivy-report.txt $DOCKER_IMAGE
-                trivy image --exit-code 0 --severity MEDIUM,HIGH --format json -o trivy-report.json $DOCKER_IMAGE
+                trivy image --exit-code 0 --severity MEDIUM,HIGH $DOCKER_IMAGE > trivy-report.txt
                 '''
             }
             post {
                 always {
-                    archiveArtifacts artifacts: 'trivy-report.*', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'trivy-report.txt', allowEmptyArchive: true
                 }
             }
         }
