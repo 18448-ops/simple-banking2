@@ -114,12 +114,37 @@ pipeline {
                 """
             }
         }
+
+        stage('Send SonarQube Report by Email') {
+            steps {
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    sh """
+                        mkdir -p ${REPORT_DIR}
+                        curl -s -u $SONAR_TOKEN: \
+                          "http://192.168.189.138:9000/api/cnesreport/report?key=simple-banking2" \
+                          -o ${REPORT_DIR}/sonarqube_report.pdf
+                    """
+                }
+
+                emailext(
+                    subject: "📊 Rapport SonarQube - simple-banking2",
+                    body: """Bonjour Manel,
+
+Veuillez trouver ci-joint le rapport PDF généré par SonarQube pour le projet *simple-banking2*.
+
+-- Votre pipeline Jenkins DevSecOps 🚀
+""",
+                    to: "manelsliti184@gmail.com",
+                    attachmentsPattern: "${REPORT_DIR}/sonarqube_report.pdf"
+                )
+            }
+        }
     }
 
     post {
         always {
-            archiveArtifacts artifacts: "${REPORT_DIR}/*.txt", fingerprint: true
-            echo "✅ Pipeline terminé. Rapport Trivy disponible dans les artifacts Jenkins."
+            archiveArtifacts artifacts: "${REPORT_DIR}/*", fingerprint: true
+            echo "✅ Pipeline terminé. Rapports (Trivy + SonarQube PDF) disponibles."
         }
     }
 }
