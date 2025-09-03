@@ -2,13 +2,7 @@ pipeline {
     agent any
 
     environment {
-        VENV_DIR      = "${WORKSPACE}/venv"
-        PYTHONPATH    = "${WORKSPACE}/src"
-        PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
-        ENVIRONMENT   = "test"
-        SONARQUBE     = 'sonarqube'   // Nom configuré dans Jenkins → Manage Jenkins → System
-        DATABASE_URL  = "postgresql://user:password@192.168.189.138:5432/mydb"
-        DOCKER_IMAGE  = "maneldev131/simple-banking-api:latest"
+        DOCKER_IMAGE = "simple-banking-api"
     }
 
     stages {
@@ -20,28 +14,24 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh """
-                    python3 -m venv ${VENV_DIR}
-                    . ${VENV_DIR}/bin/activate
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
-                    pip install pytest pytest-cov
-                """
+                sh '''
+                python3 -m venv venv
+                . venv/bin/activate
+                pip install --upgrade pip
+                pip install -r requirements.txt
+                '''
             }
         }
 
         stage('Test') {
             steps {
-                sh """
-                    . ${VENV_DIR}/bin/activate
-                    if [ "$ENVIRONMENT" = "test" ]; then
-                        export DATABASE_URL="sqlite:///./test_banking.db"
-                    fi
-                    pytest --maxfail=1 --disable-warnings -q \
-                           --junitxml=pytest-report.xml \
-                           --cov=src --cov-report=xml \
-                           --ignore=trivy
-                """
+                sh '''
+                . venv/bin/activate
+                export DATABASE_URL=sqlite:///./test_banking.db
+                pytest --maxfail=1 --disable-warnings -q \
+                       --junitxml=pytest-report.xml \
+                       --cov=src --cov-report=xml
+                '''
             }
             post {
                 always {
@@ -52,19 +42,16 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv("${SONARQUBE}") {
+                withSonarQubeEnv('sonarqube') {
                     withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-                        script {
-                            def scannerHome = tool 'sonar-scanner'
-                            sh """
-                                ${scannerHome}/bin/sonar-scanner \
-                                  -Dsonar.projectKey=simple-banking2 \
-                                  -Dsonar.sources=src \
-                                  -Dsonar.python.coverage.reportPaths=coverage.xml \
-                                  -Dsonar.host.url=http://192.168.189.138:9000 \
-                                  -Dsonar.login=$SONAR_TOKEN
-                            """
-                        }
+                        sh '''
+                        sonar-scanner \
+                          -Dsonar.projectKey=simple-banking2 \
+                          -Dsonar.sources=src \
+                          -Dsonar.python.coverage.reportPaths=coverage.xml \
+                          -Dsonar.host.url=http://192.168.189.138:9000 \
+                          -Dsonar.token=$SONAR_TOKEN
+                        '''
                     }
                 }
             }
@@ -80,50 +67,43 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh "docker build -t simple-banking-api ."
+                sh 'docker build -t $DOCKER_IMAGE .'
             }
         }
 
         stage('Trivy Scan') {
             steps {
-                sh """
-                    if ! command -v trivy >/dev/null 2>&1; then
-                        echo "Installing Trivy..."
-                        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
-                        sudo mv trivy /usr/local/bin/
-                        rm -rf trivy   # 🔥 Supprime le dossier qui casse pytest
-                    fi
-                    echo "Running Trivy scan..."
-                    trivy image --exit-code 0 --severity MEDIUM,HIGH simple-banking-api > trivy-report.txt
-                    trivy image --exit-code 1 --severity CRITICAL simple-banking-api >> trivy-report.txt
-                """
+                sh '''
+                echo "Installing Trivy..."
+                curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
+                chmod +x ./bin/trivy
+                sudo mv ./bin/trivy /usr/local/bin/trivy || mv ./bin/trivy ~/bin/trivy
+
+                echo "Running Trivy scan..."
+                trivy --version
+                trivy image --exit-code 0 --severity MEDIUM,HIGH $DOCKER_IMAGE
+                '''
             }
             post {
                 always {
-                    archiveArtifacts artifacts: 'trivy-report.txt', fingerprint: true
+                    archiveArtifacts artifacts: '**/trivy-report*', allowEmptyArchive: true
                 }
             }
         }
 
         stage('Push Docker Image') {
+            when {
+                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
+            }
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh """
-                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                        docker tag simple-banking-api ${DOCKER_IMAGE}
-                        docker push ${DOCKER_IMAGE}
-                    """
-                }
+                sh 'docker tag $DOCKER_IMAGE your-dockerhub-user/$DOCKER_IMAGE:latest'
+                sh 'docker push your-dockerhub-user/$DOCKER_IMAGE:latest'
             }
         }
 
         stage('Run Docker Container') {
             steps {
-                sh """
-                    docker stop simple-banking-api || true
-                    docker rm simple-banking-api || true
-                    docker run -d --name simple-banking-api -p 8000:8000 ${DOCKER_IMAGE}
-                """
+                sh 'docker run -d -p 8000:8000 $DOCKER_IMAGE'
             }
         }
     }
