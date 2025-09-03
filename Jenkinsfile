@@ -6,7 +6,7 @@ pipeline {
         PYTHONPATH    = "${WORKSPACE}/src"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
         ENVIRONMENT   = "test"
-        SONARQUBE     = 'sonarqube'
+        SONARQUBE     = 'sonarqube'   // Nom configuré dans Jenkins → Manage Jenkins → System
         DATABASE_URL  = "postgresql://user:password@192.168.189.138:5432/mydb"
         DOCKER_IMAGE  = "maneldev131/simple-banking-api:latest"
     }
@@ -39,7 +39,8 @@ pipeline {
                     fi
                     pytest --maxfail=1 --disable-warnings -q \
                            --junitxml=pytest-report.xml \
-                           --cov=src --cov-report=xml
+                           --cov=src --cov-report=xml \
+                           --ignore=trivy
                 """
             }
             post {
@@ -90,6 +91,7 @@ pipeline {
                         echo "Installing Trivy..."
                         curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
                         sudo mv trivy /usr/local/bin/
+                        rm -rf trivy   # 🔥 Supprime le dossier qui casse pytest
                     fi
                     echo "Running Trivy scan..."
                     trivy image --exit-code 0 --severity MEDIUM,HIGH simple-banking-api > trivy-report.txt
