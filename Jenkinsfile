@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    tools {
+        jdk 'jdk17'   // ⚠️ configure ce JDK dans Jenkins Global Tool Configuration
+    }
+
     environment {
         DOCKER_IMAGE = "simple-banking-api"
     }
@@ -76,17 +80,17 @@ pipeline {
                 sh '''
                 echo "Installing Trivy..."
                 curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
-                chmod +x ./bin/trivy
-                sudo mv ./bin/trivy /usr/local/bin/trivy || mv ./bin/trivy ~/bin/trivy
+                sudo mv ./bin/trivy /usr/local/bin/trivy
 
                 echo "Running Trivy scan..."
                 trivy --version
-                trivy image --exit-code 0 --severity MEDIUM,HIGH $DOCKER_IMAGE
+                trivy image --exit-code 0 --severity MEDIUM,HIGH --format table -o trivy-report.txt $DOCKER_IMAGE
+                trivy image --exit-code 0 --severity MEDIUM,HIGH --format json -o trivy-report.json $DOCKER_IMAGE
                 '''
             }
             post {
                 always {
-                    archiveArtifacts artifacts: '**/trivy-report*', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'trivy-report.*', allowEmptyArchive: true
                 }
             }
         }
@@ -96,14 +100,23 @@ pipeline {
                 expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
             }
             steps {
-                sh 'docker tag $DOCKER_IMAGE your-dockerhub-user/$DOCKER_IMAGE:latest'
-                sh 'docker push your-dockerhub-user/$DOCKER_IMAGE:latest'
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                    echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                    docker tag $DOCKER_IMAGE $DOCKER_USER/$DOCKER_IMAGE:latest
+                    docker push $DOCKER_USER/$DOCKER_IMAGE:latest
+                    '''
+                }
             }
         }
 
         stage('Run Docker Container') {
             steps {
-                sh 'docker run -d -p 8000:8000 $DOCKER_IMAGE'
+                sh '''
+                docker stop simple-banking-api || true
+                docker rm simple-banking-api || true
+                docker run -d --name simple-banking-api -p 8000:8000 $DOCKER_IMAGE
+                '''
             }
         }
     }
