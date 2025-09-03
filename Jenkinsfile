@@ -6,9 +6,9 @@ pipeline {
         PYTHONPATH    = "${WORKSPACE}/src"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
         ENVIRONMENT   = "test"
-        SONARQUBE     = 'sonarqube'   // Nom configuré dans Jenkins
+        SONARQUBE     = 'sonarqube'   // Nom configuré dans Jenkins → Manage Jenkins → System
         DATABASE_URL  = "postgresql://user:password@192.168.189.138:5432/mydb"
-        DOCKER_IMAGE  = "maneldev131/simple-banking-api:latest"
+        DOCKER_IMAGE  = "maneldev131/simple-banking-api:latest"   // 🔧 Namespace DockerHub
     }
 
     stages {
@@ -85,20 +85,18 @@ pipeline {
 
         stage('Trivy Scan') {
             steps {
-                // ⚡ Scan l’image construite
                 sh """
-                    trivy image --exit-code 1 --severity HIGH,CRITICAL simple-banking-api || true
+                    docker run --rm \
+                        -v /var/run/docker.sock:/var/run/docker.sock \
+                        -v $WORKSPACE:/root/.cache/ \
+                        aquasec/trivy:latest image \
+                        --exit-code 0 \
+                        --severity HIGH,CRITICAL \
+                        --format table \
+                        --output $WORKSPACE/trivy-report.txt \
+                        simple-banking-api
                 """
-            }
-            post {
-                always {
-                    // Sauvegarde le rapport JSON et HTML
-                    sh """
-                        trivy image --format json -o trivy-report.json simple-banking-api
-                        trivy image --format template --template "@/contrib/html.tpl" -o trivy-report.html simple-banking-api
-                    """
-                    archiveArtifacts artifacts: 'trivy-report.*', allowEmptyArchive: true
-                }
+                archiveArtifacts artifacts: 'trivy-report.txt', followSymlinks: false
             }
         }
 
@@ -122,6 +120,13 @@ pipeline {
                     docker run -d --name simple-banking-api -p 8000:8000 ${DOCKER_IMAGE}
                 """
             }
+        }
+    }
+
+    post {
+        always {
+            echo "Nettoyage terminé"
+            sh "docker system prune -f || true"
         }
     }
 }
