@@ -1,11 +1,9 @@
 pipeline {
     agent any
 
-    tools {
-        jdk 'jdk17'   // ⚠️ configure ce JDK dans Jenkins Global Tool Configuration
-    }
-
     environment {
+        JAVA_HOME = "/usr/lib/jvm/java-17-openjdk-amd64"
+        PATH = "${JAVA_HOME}/bin:${env.PATH}"
         DOCKER_IMAGE = "simple-banking-api"
     }
 
