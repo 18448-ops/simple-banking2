@@ -1,46 +1,47 @@
 pipeline {
     agent any
 
-    tools {
-        // Ton JDK17 configuré dans Jenkins
-        jdk 'jdk17'
+    environment {
+        VENV_DIR      = "${WORKSPACE}/venv"
+        PYTHONPATH    = "${WORKSPACE}/src"
+        PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
+        ENVIRONMENT   = "test"
+        SONARQUBE     = 'sonarqube'
+        DATABASE_URL  = "sqlite:///./test_banking.db"
+        DOCKER_IMAGE  = "maneldev131/simple-banking2:latest"
     }
 
-    environment {
-        SONAR_HOST_URL    = 'http://192.168.189.138:9000'
-        SONAR_PROJECT_KEY = 'simple-banking2'
-        DOCKER_IMAGE      = "simple-banking2:latest"
+    tools {
+        jdk 'jdk17'
     }
 
     stages {
         stage('Checkout SCM') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/18448-ops/simple-banking2.git',
-                    credentialsId: 'fraud-pipeline'
+                checkout scm
             }
         }
 
         stage('Build') {
             steps {
-                sh '''
-                    python3 -m venv venv
-                    . venv/bin/activate
+                sh """
+                    python3 -m venv ${VENV_DIR}
+                    . ${VENV_DIR}/bin/activate
                     pip install --upgrade pip
                     pip install -r requirements.txt
-                '''
+                    pip install pytest pytest-cov
+                """
             }
         }
 
         stage('Test') {
             steps {
-                sh '''
-                    . venv/bin/activate
-                    export DATABASE_URL=sqlite:///./test_banking.db
+                sh """
+                    . ${VENV_DIR}/bin/activate
                     pytest --maxfail=1 --disable-warnings -q \
                            --junitxml=pytest-report.xml \
                            --cov=src --cov-report=xml
-                '''
+                """
             }
             post {
                 always {
@@ -51,26 +52,27 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('sonarqube') {
+                withSonarQubeEnv("${SONARQUBE}") {
                     withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-                        sh '''
-                            export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-                            export PATH=$JAVA_HOME/bin:$PATH
-                            sonar-scanner \
-                              -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                              -Dsonar.sources=src \
-                              -Dsonar.python.coverage.reportPaths=coverage.xml \
-                              -Dsonar.host.url=${SONAR_HOST_URL} \
-                              -Dsonar.token=$SONAR_TOKEN
-                        '''
+                        script {
+                            def scannerHome = tool 'sonar-scanner'
+                            sh """
+                                ${scannerHome}/bin/sonar-scanner \
+                                  -Dsonar.projectKey=simple-banking2 \
+                                  -Dsonar.sources=src \
+                                  -Dsonar.python.coverage.reportPaths=coverage.xml \
+                                  -Dsonar.host.url=http://192.168.189.138:9000 \
+                                  -Dsonar.login=$SONAR_TOKEN
+                            """
+                        }
                     }
                 }
             }
         }
 
-        stage("Quality Gate") {
+        stage('Quality Gate') {
             steps {
-                timeout(time: 2, unit: 'MINUTES') {
+                timeout(time: 5, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
             }
@@ -78,41 +80,36 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh '''
-                    docker build -t ${DOCKER_IMAGE} .
-                '''
+                sh "docker build -t ${DOCKER_IMAGE} ."
             }
         }
 
         stage('Trivy Scan') {
             steps {
-                sh '''
+                sh """
                     trivy image --exit-code 0 --severity LOW,MEDIUM ${DOCKER_IMAGE}
                     trivy image --exit-code 1 --severity HIGH,CRITICAL ${DOCKER_IMAGE}
-                '''
+                """
             }
         }
 
         stage('Push Docker Image') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials',
-                                                 usernameVariable: 'DOCKER_USERNAME',
-                                                 passwordVariable: 'DOCKER_PASSWORD')]) {
-                    sh '''
-                        echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-                        docker tag ${DOCKER_IMAGE} maneldev131/simple-banking2:latest
-                        docker push maneldev131/simple-banking2:latest
-                    '''
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh """
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker push ${DOCKER_IMAGE}
+                    """
                 }
             }
         }
 
         stage('Run Docker Container') {
             steps {
-                sh '''
+                sh """
                     docker rm -f simple-banking2 || true
                     docker run -d -p 8000:8000 --name simple-banking2 ${DOCKER_IMAGE}
-                '''
+                """
             }
         }
     }
