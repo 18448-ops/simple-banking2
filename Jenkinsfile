@@ -2,15 +2,14 @@ pipeline {
     agent any
 
     tools {
-        // 🔹 Utilise le JDK que tu as configuré dans Jenkins (Manage Jenkins → Global Tool Configuration)
+        // Ton JDK17 configuré dans Jenkins
         jdk 'jdk17'
     }
 
     environment {
-        SONAR_HOST_URL = 'http://192.168.189.138:9000'
+        SONAR_HOST_URL    = 'http://192.168.189.138:9000'
         SONAR_PROJECT_KEY = 'simple-banking2'
-        SONAR_LOGIN = credentials('sonar-token')  // ⚠️ Ton token doit être ajouté dans Jenkins Credentials
-        DOCKER_IMAGE = "simple-banking2:latest"
+        DOCKER_IMAGE      = "simple-banking2:latest"
     }
 
     stages {
@@ -53,7 +52,7 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('sonarqube') {
-                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                    withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                         sh '''
                             export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
                             export PATH=$JAVA_HOME/bin:$PATH
@@ -96,18 +95,23 @@ pipeline {
 
         stage('Push Docker Image') {
             steps {
-                sh '''
-                    echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-                    docker tag ${DOCKER_IMAGE} ${DOCKER_USERNAME}/simple-banking2:latest
-                    docker push ${DOCKER_USERNAME}/simple-banking2:latest
-                '''
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials',
+                                                 usernameVariable: 'DOCKER_USERNAME',
+                                                 passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh '''
+                        echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+                        docker tag ${DOCKER_IMAGE} maneldev131/simple-banking2:latest
+                        docker push maneldev131/simple-banking2:latest
+                    '''
+                }
             }
         }
 
         stage('Run Docker Container') {
             steps {
                 sh '''
-                    docker run -d -p 8000:8000 --name simple-banking2 simple-banking2:latest
+                    docker rm -f simple-banking2 || true
+                    docker run -d -p 8000:8000 --name simple-banking2 ${DOCKER_IMAGE}
                 '''
             }
         }
