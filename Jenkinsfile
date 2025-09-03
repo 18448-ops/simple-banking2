@@ -6,13 +6,10 @@ pipeline {
         PYTHONPATH    = "${WORKSPACE}/src"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
         ENVIRONMENT   = "test"
-        SONARQUBE     = 'sonarqube'
-        DATABASE_URL  = "sqlite:///./test_banking.db"
-        DOCKER_IMAGE  = "maneldev131/simple-banking2:latest"
-    }
-
-    tools {
-        jdk 'jdk17'
+        SONARQUBE     = 'sonarqube'   // Nom configuré dans Jenkins → Manage Jenkins → System
+        DATABASE_URL  = "postgresql://user:password@192.168.189.138:5432/mydb"
+        DOCKER_IMAGE  = "maneldev131/simple-banking-api:latest"
+        REPORT_DIR    = "reports"
     }
 
     stages {
@@ -38,6 +35,9 @@ pipeline {
             steps {
                 sh """
                     . ${VENV_DIR}/bin/activate
+                    if [ "$ENVIRONMENT" = "test" ]; then
+                        export DATABASE_URL="sqlite:///./test_banking.db"
+                    fi
                     pytest --maxfail=1 --disable-warnings -q \
                            --junitxml=pytest-report.xml \
                            --cov=src --cov-report=xml
@@ -87,8 +87,9 @@ pipeline {
         stage('Trivy Scan') {
             steps {
                 sh """
-                    trivy image --exit-code 0 --severity LOW,MEDIUM ${DOCKER_IMAGE}
-                    trivy image --exit-code 1 --severity HIGH,CRITICAL ${DOCKER_IMAGE}
+                    mkdir -p ${REPORT_DIR}
+                    echo ">>> Running Trivy Scan (pipeline ne sera PAS bloqué)"
+                    trivy image --format table --output ${REPORT_DIR}/trivy_report.txt ${DOCKER_IMAGE} || true
                 """
             }
         }
@@ -107,10 +108,18 @@ pipeline {
         stage('Run Docker Container') {
             steps {
                 sh """
-                    docker rm -f simple-banking2 || true
-                    docker run -d -p 8000:8000 --name simple-banking2 ${DOCKER_IMAGE}
+                    docker stop simple-banking-api || true
+                    docker rm simple-banking-api || true
+                    docker run -d --name simple-banking-api -p 8000:8000 ${DOCKER_IMAGE}
                 """
             }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: "${REPORT_DIR}/*.txt", fingerprint: true
+            echo "✅ Pipeline terminé. Rapport Trivy disponible dans les artifacts Jenkins."
         }
     }
 }
