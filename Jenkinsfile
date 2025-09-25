@@ -88,8 +88,8 @@ pipeline {
             steps {
                 sh """
                     mkdir -p ${REPORT_DIR}
-                    echo ">>> Running Trivy Scan (pipeline ne sera PAS bloqué)"
-                    trivy image --format table --output ${REPORT_DIR}/trivy_report.txt ${DOCKER_IMAGE} || true
+                    echo ">>> Running Trivy Scan"
+                    trivy image --format json --output ${REPORT_DIR}/trivy_report.json ${DOCKER_IMAGE} || true
                 """
             }
         }
@@ -115,27 +115,36 @@ pipeline {
             }
         }
 
-        stage('Send SonarQube Report by Email') {
+        stage('Send Reports by Email') {
             steps {
                 withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                     sh """
                         mkdir -p ${REPORT_DIR}
+                        // Récupérer le rapport en HTML
                         curl -s -u $SONAR_TOKEN: \
-                          "http://192.168.189.138:9000/api/cnesreport/report?key=simple-banking2" \
-                          -o ${REPORT_DIR}/sonarqube_report.pdf
+                          "http://192.168.189.138:9000/dashboard?id=simple-banking2" \
+                          -o ${REPORT_DIR}/sonarqube_report.html
                     """
                 }
 
+                // Convertir le rapport HTML SonarQube en PDF (si nécessaire, vous pouvez remplacer wkhtmltopdf par un autre outil de conversion)
+                sh """
+                    wkhtmltopdf ${REPORT_DIR}/sonarqube_report.html ${REPORT_DIR}/sonarqube_report.pdf
+                """
+
+                // Envoi des rapports par email
                 emailext(
-                    subject: "📊 Rapport SonarQube - simple-banking2",
+                    subject: "📊 Rapports SonarQube & Trivy - simple-banking2",
                     body: """Bonjour Manel,
 
-Veuillez trouver ci-joint le rapport PDF généré par SonarQube pour le projet *simple-banking2*.
+Voici les rapports générés par SonarQube et Trivy Scan pour le projet *simple-banking2*.
 
--- Votre pipeline Jenkins DevSecOps 🚀
+Veuillez trouver ci-joint les rapports PDF.
+
+-- Votre pipeline Jenkins 🚀
 """,
                     to: "manelsliti184@gmail.com",
-                    attachmentsPattern: "${REPORT_DIR}/sonarqube_report.pdf"
+                    attachmentsPattern: "${REPORT_DIR}/sonarqube_report.pdf,${REPORT_DIR}/trivy_report.json"
                 )
             }
         }
