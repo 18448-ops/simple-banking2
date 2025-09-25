@@ -120,8 +120,9 @@ pipeline {
                 withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                     sh """
                         mkdir -p ${REPORT_DIR}
+                        # Fetch SonarQube analysis result using the task API for the specific task ID
                         curl -s -u $SONAR_TOKEN: \
-                          "http://192.168.189.138:9000/api/qualitygates/report?projectKey=simple-banking2" \
+                          "http://192.168.189.138:9000/api/ce/task?id=your-task-id" \
                           -o ${REPORT_DIR}/sonarqube_report.html
                     """
                 }
