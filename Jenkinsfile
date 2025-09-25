@@ -119,12 +119,20 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                     script {
-                        // Step 1: Get the analysis task ID dynamically from SonarQube
+                        // Étape 1 : Attendre que l'analyse soit terminée (30 secondes)
+                        sleep 30
+
+                        // Étape 2 : Récupérer l'ID de la tâche SonarQube
                         def taskId = sh(script: """
                             curl -s -u $SONAR_TOKEN: "http://192.168.189.138:9000/api/ce/task?id=latest" | jq -r '.task.id'
                         """, returnStdout: true).trim()
 
-                        // Step 2: Fetch SonarQube report using the task ID
+                        // Vérifier si le taskId est valide
+                        if (!taskId) {
+                            error "Aucune tâche trouvée pour l'ID de SonarQube"
+                        }
+
+                        // Étape 3 : Récupérer le rapport SonarQube
                         sh """
                             mkdir -p ${REPORT_DIR}
                             curl -s -u $SONAR_TOKEN: \
