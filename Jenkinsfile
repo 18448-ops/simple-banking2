@@ -7,7 +7,7 @@ pipeline {
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
         ENVIRONMENT   = "test"
         SONARQUBE     = 'sonarqube'   // Nom configuré dans Jenkins → Manage Jenkins → System
-        DATABASE_URL  = "postgresql://user:password@192.168.189.138:5432/mydb"
+        DATABASE_URL  = "postgresql://user:password@192.168.189.135:5432/mydb"
         DOCKER_IMAGE  = "maneldev131/simple-banking-api:latest"
         REPORT_DIR    = "reports"
     }
