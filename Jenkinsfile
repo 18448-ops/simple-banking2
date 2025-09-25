@@ -7,7 +7,7 @@ pipeline {
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
         ENVIRONMENT   = "test"
         SONARQUBE     = 'sonarqube'   // Nom configuré dans Jenkins → Manage Jenkins → System
-        DATABASE_URL  = "postgresql://user:password@192.168.189.138:5432/mydb"
+        DATABASE_URL  = "postgresql://user:password@192.168.189.135:5432/mydb"
         DOCKER_IMAGE  = "maneldev131/simple-banking-api:latest"
         REPORT_DIR    = "reports"
     }
@@ -118,9 +118,9 @@ pipeline {
         stage('Send Reports by Email') {
             steps {
                 withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    // Récupérer le rapport en HTML depuis SonarQube
                     sh """
                         mkdir -p ${REPORT_DIR}
-                        // Récupérer le rapport en HTML
                         curl -s -u $SONAR_TOKEN: \
                           "http://192.168.189.138:9000/dashboard?id=simple-banking2" \
                           -o ${REPORT_DIR}/sonarqube_report.html
@@ -132,7 +132,7 @@ pipeline {
                     wkhtmltopdf ${REPORT_DIR}/sonarqube_report.html ${REPORT_DIR}/sonarqube_report.pdf
                 """
 
-                // Envoi des rapports par email
+                // Envoi des rapports par email avec les fichiers en pièce jointe
                 emailext(
                     subject: "📊 Rapports SonarQube & Trivy - simple-banking2",
                     body: """Bonjour Manel,
